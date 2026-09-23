@@ -42,6 +42,67 @@ ComfyUI is the AI creation engine for visual professionals who demand control ov
 - The most sophisticated workflows can be exposed through a simple UI thanks to App Mode.
 - It integrates seamlessly into production pipelines with our API endpoints.
 
+---
+
+## ⚡ Qwen-Image-2.1 GGUF on Apple Silicon (MPS) 实战工程与调优
+
+本项目基于 Apple Silicon 架构（Mac M 系列统一内存 / MPS 后端），对 **Qwen-Image-2.1 GGUF** 进行全流程推理性能评测、流匹配数学调度调优与工程化落地。
+
+详细完整的实战评测、原理解析与温控分析请参见：
+- 📖 **本地完整 Wiki 文档**：[`docs/INFERENCE_TUNING_WIKI.md`](docs/INFERENCE_TUNING_WIKI.md)
+- 🌐 **在线 GitHub Wiki**：[YoungCan-Wang/ComfyUI Wiki](https://github.com/YoungCan-Wang/ComfyUI/wiki)
+- 🎛️ **调优工作流 JSON**：[`workflows/qwen_image_2.1_t2i_gguf.json`](workflows/qwen_image_2.1_t2i_gguf.json)
+
+### 1. 核心实测基准矩阵（Mac MPS 统一内存）
+
+| 实验配置 | 步数 (Steps) | 采样/调度器 (Sampler/Scheduler) | 分辨率 | 耗时 (s) | 性能提升与工程收益 |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| **基准冷启** | 25 | `euler` + `normal` | 1024 × 1024 | **1379s (~23.0m)** | 高精度基准，单步 ~55.1s，GPU 满载 97% 持续发热 |
+| **👑 黄金平衡点** | **18** | **`euler` + `normal`** | 1024 × 1024 | **987s (~16.4m)** | **耗时精准下降 28.4%**（省 6.5 分钟高热负载），肢体解剖结构无损 |
+| **分辨率压缩** | 18 | `euler` + `normal` | 768 × 768 | **738s (~12.3m)** | Token 计算量减少 44%，速度提升 46.5% |
+| **热管道 + Prompt 命中** | 18 | `euler` + `normal` | 768 × 768 | **498.5s (~8.3m)** | **相比基准提速 63.8%**（单步 27.5s，CLIP 文本编码跳过） |
+
+> **⚠️ 算法铁律**：Qwen-Image-2.1 为整流流匹配（Rectified Flow / Flow Matching）模型，数学上属于直线速度场 ODE 积分。**绝对严禁**使用传统高斯扩散求解器（如 `dpmpp_2m` + `karras`），否则会导致积分严重发散呈噪波磨砂状。请务必锁定 `euler` + `normal`。
+
+### 2. 快速启动与模型拉取
+
+```bash
+# 1. 自动拉取 GGUF 主模型、Qwen3-VL 文本编码器与 VAE
+python download_models.py
+
+# 2. 启动 ComfyUI (默认监听 127.0.0.1:8188)
+./start.sh
+```
+
+### 3. Git 仓库与版本管理规范（推荐模板）
+
+当将此工程推送至 GitHub 仓库时，务必使用以下 `.gitignore` 规范，避免误提交几十 GB 的模型权重与生成缓存：
+
+```gitignore
+# 忽略大模型权重文件
+models/diffusion_models/*.gguf
+models/diffusion_models/*.safetensors
+models/text_encoders/*.safetensors
+models/vae/*.safetensors
+
+# 忽略输出图片缓存
+output/*.png
+output/*.jpg
+
+# 忽略虚拟环境与系统缓存
+.venv/
+__pycache__/
+*.pyc
+.DS_Store
+```
+
+**只需提交**：
+- `docs/`（调优 Wiki、评测报告与技术总结）
+- `workflows/`（调优后的 ComfyUI 流程 JSON）
+- 自定义脚本或 Python 插件代码（如 `start.sh`, `download_models.py`）
+
+---
+
 ## Get Started
 
 ### Local
