@@ -44,40 +44,28 @@ ComfyUI is the AI creation engine for visual professionals who demand control ov
 
 ---
 
-## ⚡ Qwen-Image-2.1 GGUF on Apple Silicon (MPS) 实战工程与调优
+## ⚡ Qwen-Image-2.1 GGUF (Apple Silicon MPS) 工程配置与管理规范
 
-本项目基于 Apple Silicon 架构（Mac M 系列统一内存 / MPS 后端），对 **Qwen-Image-2.1 GGUF** 进行全流程推理性能评测、流匹配数学调度调优与工程化落地。
+本仓库包含针对 Apple Silicon 统一内存（MPS 后端）运行 **Qwen-Image-2.1 GGUF** 的环境配置、自动化维护脚本、调优工作流与 Git 版本管理规范。
 
-详细完整的实战评测、原理解析与温控分析请参见：
-- 📖 **本地完整 Wiki 文档**：[`docs/INFERENCE_TUNING_WIKI.md`](docs/INFERENCE_TUNING_WIKI.md)
-- 🌐 **在线 GitHub Wiki**：[YoungCan-Wang/ComfyUI Wiki](https://github.com/YoungCan-Wang/ComfyUI/wiki)
-- 🎛️ **调优工作流 JSON**：[`workflows/qwen_image_2.1_t2i_gguf.json`](workflows/qwen_image_2.1_t2i_gguf.json)
-
-### 1. 核心实测基准矩阵（Mac MPS 统一内存）
-
-| 实验配置 | 步数 (Steps) | 采样/调度器 (Sampler/Scheduler) | 分辨率 | 耗时 (s) | 性能提升与工程收益 |
-| :--- | :--- | :--- | :--- | :--- | :--- |
-| **基准冷启** | 25 | `euler` + `normal` | 1024 × 1024 | **1379s (~23.0m)** | 高精度基准，单步 ~55.1s，GPU 满载 97% 持续发热 |
-| **👑 黄金平衡点** | **18** | **`euler` + `normal`** | 1024 × 1024 | **987s (~16.4m)** | **耗时精准下降 28.4%**（省 6.5 分钟高热负载），肢体解剖结构无损 |
-| **分辨率压缩** | 18 | `euler` + `normal` | 768 × 768 | **738s (~12.3m)** | Token 计算量减少 44%，速度提升 46.5% |
-| **热管道 + Prompt 命中** | 18 | `euler` + `normal` | 768 × 768 | **498.5s (~8.3m)** | **相比基准提速 63.8%**（单步 27.5s，CLIP 文本编码跳过） |
-
-> **⚠️ 算法铁律**：Qwen-Image-2.1 为整流流匹配（Rectified Flow / Flow Matching）模型，数学上属于直线速度场 ODE 积分。**绝对严禁**使用传统高斯扩散求解器（如 `dpmpp_2m` + `karras`），否则会导致积分严重发散呈噪波磨砂状。请务必锁定 `euler` + `normal`。
-
-### 2. 快速启动与模型拉取
+### 1. 快速上手 (Quickstart)
 
 ```bash
-# 1. 自动拉取 GGUF 主模型、Qwen3-VL 文本编码器与 VAE
+# 1. 下载所需模型组件 (Q4_K_M GGUF, Qwen3-VL 文本编码器, VAE)
 python download_models.py
 
-# 2. 启动 ComfyUI (默认监听 127.0.0.1:8188)
+# 2. 启动 ComfyUI 服务 (默认监听 http://127.0.0.1:8188)
 ./start.sh
 ```
 
-### 3. Git 仓库与版本管理规范（推荐模板）
+- **调优工作流文件**：[`workflows/qwen_image_2.1_t2i_gguf.json`](workflows/qwen_image_2.1_t2i_gguf.json)
+  可直接拖拽至 ComfyUI Web 界面使用。
 
-当将此工程推送至 GitHub 仓库时，务必使用以下 `.gitignore` 规范，避免误提交几十 GB 的模型权重与生成缓存：
+### 2. Git 仓库与版本管理规范
 
+由于本地推理涉及几十 GB 的模型权重和高频图片生成，推送到远程仓库时务必严格遵守以下版本控制规范：
+
+#### `.gitignore` 推荐配置
 ```gitignore
 # 忽略大模型权重文件
 models/diffusion_models/*.gguf
@@ -96,10 +84,21 @@ __pycache__/
 .DS_Store
 ```
 
-**只需提交**：
-- `docs/`（调优 Wiki、评测报告与技术总结）
-- `workflows/`（调优后的 ComfyUI 流程 JSON）
-- 自定义脚本或 Python 插件代码（如 `start.sh`, `download_models.py`）
+#### 版本控制提交范围
+- ✅ **允许提交**：
+  - `docs/`（技术总结与工程 Wiki）
+  - `workflows/`（调优后的流程定义 JSON）
+  - 维护脚本与自定义代码（如 `start.sh`, `download_models.py`）
+- ❌ **严禁提交**：
+  - `models/` 下的大模型权重（.gguf / .safetensors）
+  - `output/` 下的生成产物与临时文件
+  - `.venv/` 本地虚拟环境
+
+### 3. 技术调优与性能研究文档 (Wiki)
+
+关于模型的数学架构（Flow Matching 直线 ODE）、采样器/调度器消融实验矩阵、Apple Silicon MPS 显存与功耗评测、以及温控策略等技术研究，请直接参阅：
+- 📖 **本地技术 Wiki**：[`docs/INFERENCE_TUNING_WIKI.md`](docs/INFERENCE_TUNING_WIKI.md)
+- 🌐 **在线 GitHub Wiki**：[YoungCan-Wang/ComfyUI Wiki](https://github.com/YoungCan-Wang/ComfyUI/wiki)
 
 ---
 
